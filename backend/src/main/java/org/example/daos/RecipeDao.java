@@ -1,12 +1,12 @@
 package org.example.daos;
 
-import java.beans.Statement;
-import java.security.Timestamp;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import javax.sql.DataSource;
 
@@ -87,7 +87,7 @@ public class RecipeDao {
     // Get a recipe by id.
 
     public Recipe getRecipeById(int id) {
-        String sql = SELECT_RECIPE_WITH_NAMES + "WHERE r.id = ?";
+        String sql = SELECT_RECIPE_WITH_NAMES + " WHERE r.id = ?";
         try {
             return jdbcTemplate.queryForObject(sql, this::mapToRecipe, id);
         } catch (EmptyResultDataAccessException e) {
@@ -136,6 +136,40 @@ public class RecipeDao {
         return created;
     }
 
+    // Updating an existing recipe.
+    public int updateRecipe(Recipe recipe) {
+
+        String sql = """
+                UPDATE recipes
+                SET country_id = ?,
+                    category_id = ?,
+                    title = ?,
+                    description = ?,
+                    ingredients = ?,
+                    instructions = ?,
+                    prep_time = ?,
+                    is_public = ?
+                WHERE id = ?
+                AND owner = ?
+                """;
+
+        return jdbcTemplate.update(connection -> {
+            PreparedStatement ps = connection.prepareStatement(sql);
+            ps.setObject(1, recipe.getCountryId(), Types.INTEGER);
+            ps.setObject(2, recipe.getCategoryId(), Types.INTEGER);
+            ps.setString(3, recipe.getTitle());
+            ps.setString(4, recipe.getDescription());
+            ps.setString(5, recipe.getIngredients());
+            ps.setString(6, recipe.getInstructions());
+            ps.setObject(7, recipe.getPrepTime(), Types.INTEGER);
+            // ps.setString(8, recipe.getOwner());
+            ps.setBoolean(8, Boolean.TRUE.equals(recipe.getIsPublic()));
+            ps.setObject(9, recipe.getId(), Types.INTEGER);
+            ps.setString(10, recipe.getOwner());
+            return ps;
+        });
+    }
+
     // Delete a recipe if it belongs to the given owner.
 
     public int deleteRecipe(int id, String owner) {
@@ -163,6 +197,69 @@ public class RecipeDao {
         java.sql.Timestamp createdAt = resultSet.getTimestamp("createdAt");
         recipe.setCreatedAt(createdAt == null ? null : createdAt.toLocalDateTime());
         return recipe;
+
+    }
+
+    public List<Recipe> searchPublicRecipes(
+            String title,
+            Integer countryId,
+            Integer categoryId,
+            String sortBy,
+            String direction) {
+
+        StringBuilder sql = new StringBuilder(SELECT_RECIPE_WITH_NAMES);
+        List<Object> params = new ArrayList<>();
+
+        // Searching public recipes only.
+
+        sql.append(" WHERE r.is_public = TRUE ");
+
+        // Search by recipe title.
+
+        if (title != null && !title.isBlank()) {
+            sql.append(" AND r.title LIKE ? ");
+            params.add("%" + title.trim() + "%");
+        }
+
+        // Search by country.
+
+        if (countryId != null) {
+            sql.append(" AND r.country_id = ? ");
+            params.add(countryId);
+        }
+
+        // Search by category.
+
+        if (categoryId != null) {
+            sql.append(" AND r.category_id = ? ");
+            params.add(categoryId);
+        }
+
+        // Whitelist sorting columns.
+
+        Map<String, String> sortColumns = Map.of("title", "r.title",
+                "prepTime", "r.prep_time");
+
+        String sortColumn = sortColumns.getOrDefault(sortBy, "r.title");
+
+        // Validation sorting direction defaulting to DESC order.
+
+        String sortDirection = "DESC".equalsIgnoreCase(direction) ? "DESC" : "ASC";
+
+        // Sort by the selected field.
+
+        String secondaryColumn = "r.title".equals(sortColumn) ? "r.prep_time" : "r.title";
+
+        sql.append(" ORDER BY ").append(sortColumn)
+                .append(" ")
+                .append(sortDirection)
+                .append(", ")
+                .append(secondaryColumn)
+                .append(" ASC");
+
+        return jdbcTemplate.query(sql.toString(),
+                this::mapToRecipe,
+                params.toArray());
 
     }
 }

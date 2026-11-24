@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.example.daos.RecipeDao;
+import org.example.exceptions.DaoException;
 import org.example.models.Recipe;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -12,7 +13,9 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RequestBody;
 
@@ -50,16 +53,8 @@ public class RecipeController {
         }
         return ResponseEntity.ok(recipe);
     }
-    /*
-     * @PostMapping("/debug")
-     * public ResponseEntity<?> debugCreate(@RequestBody String body) {
-     * System.out.println("Raw body: " + body);
-     * return ResponseEntity.ok(body);
-     * }
-     */
 
     @PostMapping
-
     public ResponseEntity<?> createRecipe(@RequestBody Recipe recipe, Principal principal) {
 
         if (principal == null) {
@@ -77,6 +72,29 @@ public class RecipeController {
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
+    @PutMapping("/{id}")
+    public ResponseEntity<?> updateRecipe(@PathVariable int id, @RequestBody Recipe recipe, Principal principal) {
+
+        if (principal == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        if (recipe.getTitle() == null || recipe.getTitle().isBlank() || recipe.getCountryId() == null
+                || recipe.getCategoryId() == null) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Recipe not found or not yours " + id));
+        }
+
+        recipe.setId(id);
+        recipe.setOwner(principal.getName());
+
+        int rowsUpdated = recipeDao.updateRecipe(recipe);
+        if (rowsUpdated == 0) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.noContent().build();
+
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteRecipe(@PathVariable int id, Principal principal) {
         if (principal == null) {
@@ -89,6 +107,19 @@ public class RecipeController {
         }
 
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/search")
+    public ResponseEntity<List<Recipe>> searchRecipes(
+            @RequestParam(required = false) String title,
+            @RequestParam(required = false) Integer countryId,
+            @RequestParam(required = false) Integer categoryId,
+            @RequestParam(defaultValue = "title") String sortBy,
+            @RequestParam(defaultValue = "ASC") String direction) {
+
+        List<Recipe> recipes = recipeDao.searchPublicRecipes(title, countryId, categoryId, sortBy, direction);
+
+        return ResponseEntity.ok(recipes);
     }
 
 }
