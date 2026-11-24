@@ -1,12 +1,15 @@
 package org.example.daos;
 
 import org.example.exceptions.DaoException;
+import org.example.exceptions.DuplicateUsernameException;
 import org.example.models.User;
 import org.springframework.dao.DataAccessException;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import javax.sql.DataSource;
 import java.sql.ResultSet;
@@ -31,7 +34,7 @@ public class UserDao {
     /**
      * Creates a new user data access object.
      *
-     * @param dataSource The data source for the DAO.
+     * @param dataSource      The data source for the DAO.
      * @param passwordEncoder The password encoder for the DAO.
      */
     public UserDao(DataSource dataSource, PasswordEncoder passwordEncoder) {
@@ -64,17 +67,27 @@ public class UserDao {
 
     /**
      * Creates a new user.
+     * 
      * @param user The user to create.
      * @return User The created user.
      */
+
+    private static final String DEFAULT_ROLE = "USER";
+
+    @Transactional
     public User createUser(User user) {
         String hashedPassword = passwordEncoder.encode(user.getPassword());
-        String sql = "INSERT INTO users (username, password) VALUES (?,?);";
+        String insertUser = "INSERT INTO users (username, password) VALUES (?,?);";
+        // Assigning role to the username
+        String insertRole = "INSERT INTO roles (username, role) VALUES (?, ?)";
         try {
-            jdbcTemplate.update(sql, user.getUsername(), hashedPassword);
+            jdbcTemplate.update(insertUser, user.getUsername(), hashedPassword);
+            jdbcTemplate.update(insertRole, user.getUsername(), DEFAULT_ROLE);
             return getUserByUsername(user.getUsername());
         } catch (EmptyResultDataAccessException e) {
             throw new DaoException("Failed to create user.");
+        } catch (DuplicateKeyException e) {
+            throw new DuplicateUsernameException("Username already exists: " + user.getUsername());
         }
     }
 
@@ -119,7 +132,7 @@ public class UserDao {
      * Adds a role to a user.
      *
      * @param username The username of the user.
-     * @param role The role to add.
+     * @param role     The role to add.
      * @return List of String
      */
     public List<String> addRole(String username, String role) {
@@ -135,7 +148,7 @@ public class UserDao {
      * Deletes a role from a user.
      *
      * @param username The username of the user.
-     * @param role The role to delete.
+     * @param role     The role to delete.
      */
     public int deleteRole(String username, String role) {
         String sql = "DELETE FROM roles WHERE username = ? AND role = ?";
@@ -154,7 +167,6 @@ public class UserDao {
         String username = resultSet.getString("username");
         return new User(
                 username,
-                resultSet.getString("password")
-        );
+                resultSet.getString("password"));
     }
 }
