@@ -26,27 +26,7 @@ public class RecipeDao {
     // Base query that joins the country with the category name
 
     private static final String SELECT_RECIPE_WITH_NAMES =
-            /*
-             * """
-             * SELECT r.id,
-             * r.title,
-             * r.description,
-             * r.ingredients,
-             * r.instructions,
-             * r.prep_Time AS prepTime,
-             * r.country_id AS countryId,
-             * r.category_id As categoryId,
-             * c.name As countryName,
-             * cat.name AS categoryName,
-             * r.owner,
-             * r.is_public AS isPublic,
-             * r.created_at AS createdAt
-             * 
-             * FROM recipes r
-             * LEFT JOIN countries c ON c.id = r.countryId
-             * LEFT JOIN categories cat ON cat.id = r.categoryId
-             * """;
-             */
+           
             """
                     SELECT r.id,
                             r.title,
@@ -242,7 +222,7 @@ public class RecipeDao {
 
         String sortColumn = sortColumns.getOrDefault(sortBy, "r.title");
 
-        // Validation sorting direction defaulting to DESC order.
+        // Validation sorting direction defaulting to ASC order.
 
         String sortDirection = "DESC".equalsIgnoreCase(direction) ? "DESC" : "ASC";
 

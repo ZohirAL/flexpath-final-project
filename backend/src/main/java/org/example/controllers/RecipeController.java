@@ -5,7 +5,6 @@ import java.util.List;
 import java.util.Map;
 
 import org.example.daos.RecipeDao;
-import org.example.exceptions.DaoException;
 import org.example.models.Recipe;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -19,7 +18,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RequestBody;
 
-//import io.swagger.v3.oas.annotations.parameters.RequestBody;
 
 @RestController
 @RequestMapping("/recipes")
@@ -103,7 +101,7 @@ public class RecipeController {
         int rows = recipeDao.deleteRecipe(id, principal.getName());
         if (rows == 0) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(Map.of("error", "Recipe noy found or not yours: " + id));
+                    .body(Map.of("error", "Recipe not found or not yours: " + id));
         }
 
         return ResponseEntity.noContent().build();
